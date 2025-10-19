@@ -335,8 +335,8 @@ class MatchingEngine:
             # 卖出（平多仓或开空仓），都是现金流入
             portfolio.cash += gross_value - commission
 
-        # 交易完成后更新保证金
-        portfolio.update_margin(pm)
+        # [重构] 交易完成后，全面更新所有财务指标
+        portfolio.update_financials(pm)
 
         # 根据是否产生实际盈亏来决定日志内容
         if realized_pnl != 0:
@@ -348,9 +348,6 @@ class MatchingEngine:
             self.context.logger.info(
                 f"✅ 成交[{order.side.value.upper()}] {order.symbol} 数量:{order.amount} 价格:{price:.2f}"
             )
-
-        # 交易完成后更新保证金
-        portfolio.update_margin(pm)
 
     def settle(self):
         """
@@ -386,7 +383,6 @@ class MatchingEngine:
         
         # 2. 结算所有持仓
         pm = self.context.position_manager
-        total_pos_value = 0.0
         date_str = self.context.current_dt.strftime('%Y-%m-%d')
         snapshot_entries: List[Dict] = []
 
@@ -401,12 +397,6 @@ class MatchingEngine:
                 settle_entry = pos.settle_day(close_price, date_str)
                 if settle_entry:
                     snapshot_entries.append(settle_entry)
-                    # 多头市值增加总资产，空头市值减少总资产（因为空头是负债）
-                    # 多头市值计入总资产，空头市值（负债）从总资产中扣除
-                    if pos.direction == PositionDirection.LONG:
-                        total_pos_value += settle_entry['market_value']
-                    else:
-                        total_pos_value -= settle_entry['market_value']
             else:
                 self.context.logger.warning(f"无法获取 {pos.symbol} 在 {date_str} 的收盘价用于结算。")
 
@@ -414,7 +404,8 @@ class MatchingEngine:
             if self.context.config.get('account', {}).get('trading_rule', 'T+1') == 'T+1':
                 pos.settle_t1()
 
+        # [重构] 记录每日持仓快照，并调用新的 record_history 方法
         pm.daily_snapshots = [s for s in pm.daily_snapshots if s.get('date') != date_str]
         pm.record_daily_snapshot(date_str, snapshot_entries)
-        self.context.portfolio.record_history(self.context.current_dt, total_pos_value)
-        self.context.logger.info(f"结算完成, 总资产: {self.context.portfolio.total_value:,.2f}")
+        self.context.portfolio.record_history(self.context.current_dt, pm)
+        self.context.logger.info(f"结算完成, 账户净资产: {self.context.portfolio.net_worth:,.2f}")

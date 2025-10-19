@@ -80,8 +80,15 @@ class Position:
     def margin(self) -> float:
         """计算此持仓占用的保证金。"""
         if self.direction == PositionDirection.SHORT:
-            return abs(self.market_value) * self.margin_rate
+            # 保证金总是基于市值的绝对值计算
+            return abs(self.total_amount * self.current_price) * self.margin_rate if self.current_price else 0.0
         return 0.0
+
+    @property
+    def market_value_at_cost(self) -> float:
+        """计算当前持仓的成本市值（带符号）。"""
+        multiplier = 1 if self.direction == PositionDirection.LONG else -1
+        return multiplier * self.total_amount * self.avg_cost
 
     def update_price(self, price: float):
         """更新持仓的当前市场价格。"""
@@ -172,6 +179,9 @@ class Position:
         base_value = abs(self.avg_cost * self.total_amount)
         daily_pnl_ratio = (daily_pnl / base_value) if base_value > 0 else 0.0
 
+        # [修正] 市值计算必须带符号，以反映空头头寸的负债属性
+        market_val = (1 if self.direction == PositionDirection.LONG else -1) * self.total_amount * close_price
+
         return {
             "date": date_str,
             "symbol": self.symbol,
@@ -179,7 +189,7 @@ class Position:
             "direction": self.direction.value,
             "amount": self.total_amount,
             "close_price": close_price,
-            "market_value": abs(self.total_amount * close_price),
+            "market_value": market_val,
             "daily_pnl": daily_pnl,
             "daily_pnl_ratio": daily_pnl_ratio
         }

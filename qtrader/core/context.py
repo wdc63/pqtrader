@@ -147,7 +147,6 @@ class Context:
             raise RuntimeError("核心组件 (Portfolio, PositionManager, DataProvider) 尚未初始化。")
 
         self.portfolio.cash = cash
-        total_position_value = 0
         from ..trading.position import PositionDirection
 
         for pos_data in positions:
@@ -180,12 +179,10 @@ class Context:
                 symbol_name=symbol_name,
                 direction=direction
             )
-            total_position_value += abs_amount * avg_cost
 
-        # 更新保证金和账户总值
-        self.portfolio.update_margin(self.position_manager)
-        self.portfolio.initial_cash = self.portfolio.cash + total_position_value
-        self.portfolio.total_value = self.portfolio.initial_cash
+        # [重构] 全面更新账户财务指标，并正确计算初始净资产
+        self.portfolio.update_financials(self.position_manager)
+        self.portfolio.initial_cash = self.portfolio.net_worth # 初始净资产等于此刻的净值
 
         # 生成详细的日志摘要
         all_positions = self.position_manager.get_all_positions()
@@ -204,9 +201,9 @@ class Context:
                     f"成本={pos.avg_cost:.2f}\n"
                 )
         log_message += f"  - 账户摘要:\n"
-        log_message += f"    - 总资产: {self.portfolio.total_value:.2f}\n"
-        log_message += f"    - 可用现金: {self.portfolio.available_cash:.2f}\n"
-        log_message += f"    - 占用保证金: {self.portfolio.margin:.2f}"
+        log_message += f"    - 账户净资产: {self.portfolio.net_worth:,.2f}\n"
+        log_message += f"    - 可用现金: {self.portfolio.available_cash:,.2f}\n"
+        log_message += f"    - 占用保证金: {self.portfolio.margin:,.2f}"
 
         self.logger.info(log_message)
         self._initial_state_set = True
@@ -285,12 +282,10 @@ class Context:
                 direction=direction
             )
 
-        # 3. 更新账户状态并记录日志
-        self.portfolio.update_margin(self.position_manager)
+        # 3. [重构] 更新账户状态并记录日志
+        self.portfolio.update_financials(self.position_manager)
         
         all_final_positions = self.position_manager.get_all_positions()
-        final_position_value = sum(p.total_amount * p.avg_cost for p in all_final_positions)
-        self.portfolio.total_value = self.portfolio.cash + final_position_value
 
         log_message = f"账户状态对齐完成:\n"
         log_message += f"  - 现金: {original_cash:.2f} -> {self.portfolio.cash:.2f}\n"
@@ -305,8 +300,8 @@ class Context:
                     f"数量={display_amount}, 成本={pos.avg_cost:.2f}\n"
                 )
         log_message += f"  - 对齐后账户摘要:\n"
-        log_message += f"    - 总资产: {self.portfolio.total_value:.2f}\n"
-        log_message += f"    - 可用现金: {self.portfolio.available_cash:.2f}\n"
-        log_message += f"    - 占用保证金: {self.portfolio.margin:.2f}"
+        log_message += f"    - 账户净资产: {self.portfolio.net_worth:,.2f}\n"
+        log_message += f"    - 可用现金: {self.portfolio.available_cash:,.2f}\n"
+        log_message += f"    - 占用保证金: {self.portfolio.margin:,.2f}"
         
         self.logger.info(log_message)
