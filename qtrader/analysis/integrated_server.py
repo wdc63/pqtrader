@@ -356,11 +356,18 @@ class IntegratedServer:
             intraday_equity_data = {}
             intraday_benchmark_data = {}
             
-            if portfolio.history:
-                # [重构] 当日初始资金是昨日的净资产
-                initial_cash_today = portfolio.history[-1]['net_worth']
-            else:
-                initial_cash_today = portfolio.initial_cash
+            # 始终寻找当前交易日之前的最后一个历史记录作为基准。
+            initial_cash_today = portfolio.initial_cash
+            if self.context.current_dt and portfolio.history:
+                current_date_str = self.context.current_dt.strftime('%Y-%m-%d')
+                # 从后向前查找第一个日期早于当前日期的记录
+                previous_day_record = next(
+                    (h for h in reversed(portfolio.history) if h['date'] < current_date_str),
+                    None
+                )
+                if previous_day_record:
+                    initial_cash_today = previous_day_record['net_worth']
+                # 如果找不到，说明是回测第一天，使用初始资金作为基准是正确的
             
             intraday_enabled = self.context.config.get('engine', {}).get('enable_intraday_statistics', False)
             
@@ -377,10 +384,6 @@ class IntegratedServer:
                         "values": values,
                         "returns": returns,
                     }
-                    if portfolio_returns:
-                        portfolio_returns = round((1 + portfolio_returns) * (1 + returns[-1] / 100) - 1, 4)
-                    else:
-                        portfolio_returns = round(returns[-1] / 100, 4)
 
                 if self.context.intraday_benchmark_history:
                     benchmark_history = self.context.intraday_benchmark_history.copy()
@@ -406,12 +409,12 @@ class IntegratedServer:
                 'strategy_error_today': self.context.strategy_error_today,
                 
                 'frequency': self.context.frequency,
-                'current_dt': self.context.current_dt.isoformat() if self.context.current_dt else None,
+                'current_dt': self.context.current_dt.strftime('%Y-%m-%d %H:%M:%S') if self.context.current_dt else None,
                 'is_running': self.context.is_running,
                 'is_paused': self.context.is_paused,
                 'start_date': self.context.start_date, 'end_date': self.context.end_date,
                 'portfolio': {
-                    # [重构] 使用新的、清晰的会计指标
+                    # 使用新的、清晰的会计指标
                     'net_worth': portfolio.net_worth,
                     'total_assets': portfolio.total_assets,
                     'cash': portfolio.cash,
@@ -477,27 +480,19 @@ class IntegratedServer:
                 for pos in self.context.position_manager.get_all_positions():
                     if pos.total_amount == 0: continue
                     
-                    # 为了计算实时市值和盈亏，需要获取最新价格
-                    price_data = self.context.data_provider.get_current_price(pos.symbol, current_dt)
-                    current_price = price_data['current_price'] if (price_data and price_data.get('current_price')) else pos.current_price
-                    
-                    # 计算当日盈亏 (当前价 vs 昨日结算价)
-                    from ..trading.position import PositionDirection
-                    # 根据持仓方向计算当日盈亏
-                    direction_multiplier = 1 if pos.direction == PositionDirection.LONG else -1
-                    daily_pnl = (current_price - pos.last_settle_price) * pos.total_amount * direction_multiplier
-                    base_value = abs(pos.last_settle_price * pos.total_amount)
-                    daily_pnl_ratio = (daily_pnl / base_value) if base_value > 0 else 0.0
-
+                    # [修复] 不再独立获取价格和重新计算，而是直接读取由核心引擎
+                    # 维护的、权威的持仓对象（Position）的属性。
+                    # 这确保了前端展示的数据与系统核心状态完全一致。
                     live_positions.append({
-                        "date": date_str, "symbol": pos.symbol, "symbol_name": pos.symbol_name,
+                        "date": date_str,
+                        "symbol": pos.symbol,
+                        "symbol_name": pos.symbol_name,
                         "direction": pos.direction.value,
                         "amount": pos.total_amount,
-                        "close_price": current_price,
-                        # [重构] 市值必须是带符号的，以反映空头负债
-                        "market_value": (pos.total_amount * current_price) * direction_multiplier,
-                        "daily_pnl": daily_pnl,
-                        "daily_pnl_ratio": daily_pnl_ratio
+                        "close_price": pos.current_price,
+                        "market_value": pos.market_value,
+                        "daily_pnl": pos.unrealized_pnl,
+                        "daily_pnl_ratio": pos.unrealized_pnl_ratio
                     })
                 
                 # 如果存在实时持仓，将其作为今日的快照

@@ -220,6 +220,14 @@ class Scheduler:
                 if self.context.portfolio.history: self._strategy_start_of_day_value = self.context.portfolio.history[-1]['net_worth']
                 if self.context.benchmark_manager.benchmark_history: self._benchmark_start_of_day_price = self.context.benchmark_manager.benchmark_history[-1].get('close_price')
                 
+                # 记录开盘点
+                if self._enable_intraday_statistics and not is_resume_day:
+                    sessions = self.lifecycle_config.get('trading_sessions', [])
+                    if sessions:
+                        market_open_time_str = sessions[0][0]
+                        dt_market_open = datetime.strptime(f"{date_str} {market_open_time_str}", "%Y-%m-%d %H:%M:%S")
+                        self._update_intraday_statistics(dt_market_open, force_update=True)
+
                 self._maybe_update_server()
                 if not self._check_and_handle_requests(): break
 
@@ -235,6 +243,14 @@ class Scheduler:
                 if not self._check_and_handle_requests(): break
             
             if not self.context.is_running: break
+
+            # 记录收盘点
+            if self._enable_intraday_statistics:
+                sessions = self.lifecycle_config.get('trading_sessions', [])
+                if sessions:
+                    market_close_time_str = sessions[-1][1]
+                    dt_market_close = datetime.strptime(f"{date_str} {market_close_time_str}", "%Y-%m-%d %H:%M:%S")
+                    self._update_intraday_statistics(dt_market_close, force_update=True)
 
             # --- 6. 盘后与结算事件 ---
             dt_after_trading = datetime.strptime(f"{date_str} {after_trading_time}", "%Y-%m-%d %H:%M:%S")
@@ -291,7 +307,10 @@ class Scheduler:
         # --- 1. 初始化状态机 ---
         if not getattr(self.context, 'scheduler_state_machine', None):
             self.context.scheduler_state_machine = {
-                'daily_flags': {'before_trading_done': False, 'after_trading_done': False, 'settle_done': False},
+                'daily_flags': {
+                    'before_trading_done': False, 'after_trading_done': False, 'settle_done': False,
+                    'market_open_recorded': False, 'market_close_recorded': False
+                },
                 'last_known_date': date(1970, 1, 1),
                 'last_executed_bar_time': None, # 将记录上一个执行的bar的datetime.time对象
                 'is_today_trading_day': None  # 新增：用于缓存当天是否为交易日的标志
@@ -318,7 +337,10 @@ class Scheduler:
             # --- 4. 每日状态重置 ---
             if now.date() > state_machine['last_known_date']:
                 self.context.current_dt = now
-                state_machine['daily_flags'] = {k: False for k in state_machine['daily_flags']}
+                state_machine['daily_flags'] = {
+                    'before_trading_done': False, 'after_trading_done': False, 'settle_done': False,
+                    'market_open_recorded': False, 'market_close_recorded': False
+                }
                 state_machine['last_known_date'] = now.date()
                 state_machine['is_today_trading_day'] = self.time_manager.is_trading_day(now)
                 state_machine['last_executed_bar_time'] = None
@@ -348,6 +370,26 @@ class Scheduler:
                 elif (trading_sessions[-1][1] if trading_sessions else time(0,0)) < current_time < broker_settle_time: self.context.market_phase = 'AFTER_TRADING'
                 elif current_time >= broker_settle_time and (not state_machine['daily_flags']['settle_done']): self.context.market_phase = 'SETTLEMENT'
                 else: self.context.market_phase = 'CLOSED'
+
+                # d. 补录开盘/收盘点 (simulation only)
+                if self._enable_intraday_statistics:
+                    # 补录开盘点: 首次进入TRADING状态时
+                    if self.context.market_phase == 'TRADING' and not state_machine['daily_flags']['market_open_recorded']:
+                        sessions = self.lifecycle_config.get('trading_sessions', [])
+                        if sessions:
+                            market_open_time_str = sessions[0][0]
+                            dt_market_open = datetime.combine(now.date(), datetime.strptime(market_open_time_str, '%H:%M:%S').time())
+                            self._update_intraday_statistics(dt_market_open, force_update=True)
+                            state_machine['daily_flags']['market_open_recorded'] = True
+                    
+                    # 补录收盘点: 首次进入AFTER_TRADING状态时
+                    if self.context.market_phase == 'AFTER_TRADING' and not state_machine['daily_flags']['market_close_recorded']:
+                        sessions = self.lifecycle_config.get('trading_sessions', [])
+                        if sessions:
+                            market_close_time_str = sessions[-1][1]
+                            dt_market_close = datetime.combine(now.date(), datetime.strptime(market_close_time_str, '%H:%M:%S').time())
+                            self._update_intraday_statistics(dt_market_close, force_update=True)
+                            state_machine['daily_flags']['market_close_recorded'] = True
 
                 # b. 每日一次的事件 (盘前/盘后/结算)
                 if (self.context.market_phase == 'BEFORE_TRADING' and not state_machine['daily_flags']['before_trading_done']):
@@ -535,7 +577,9 @@ class Scheduler:
             price_data = self.context.data_provider.get_current_price(pos.symbol, dt)
             current_price = price_data['current_price'] if price_data else pos.current_price
             pos.update_price(current_price)
-
+        
+        # 更新财务信息
+        self.context.portfolio.update_financials(self.context.position_manager)
         net_worth = self.context.portfolio.net_worth
         
         self.context.intraday_equity_history.append({

@@ -1,6 +1,6 @@
 # qtrader/trading/order_manager.py
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from datetime import datetime
 from ..trading.order import Order, OrderType, OrderSide, OrderStatus
 from ..core.context import Context
@@ -21,7 +21,7 @@ class OrderManager:
         self,
         symbol: str,
         amount: int,
-        order_type: OrderType,
+        order_type: Union[str, OrderType],
         price: Optional[float] = None,
         symbol_name: Optional[str] = None
     ) -> Optional[str]:
@@ -40,6 +40,19 @@ class OrderManager:
         """
         if amount == 0:
             self.context.logger.warning("下单数量为0，订单被拒绝。")
+            return None
+
+        order_type_enum: OrderType
+        if isinstance(order_type, str):
+            try:
+                order_type_enum = OrderType(order_type.lower())
+            except ValueError:
+                self.context.logger.error(f"无效的订单类型字符串: '{order_type}'. 请使用 'market' 或 'limit'。")
+                return None
+        elif isinstance(order_type, OrderType):
+            order_type_enum = order_type
+        else:
+            self.context.logger.error(f"订单类型参数类型错误: {type(order_type)}. 请使用 OrderType 枚举或字符串。")
             return None
 
         lot_size = int(self.context.config.get('account', {}).get('order_lot_size', 1) or 1)
@@ -68,7 +81,7 @@ class OrderManager:
             symbol=symbol,
             amount=abs(adjusted_amount),
             side=side,
-            order_type=order_type,
+            order_type=order_type_enum,
             limit_price=price,
             symbol_name=symbol_name
         )

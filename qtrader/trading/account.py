@@ -90,3 +90,13 @@ class Portfolio:
         if self.initial_cash == 0:
             return 0.0
         return (self.net_worth - self.initial_cash) / self.initial_cash
+
+    @property
+    def long_market_value(self) -> float:
+        """返回当前所有多头持仓的总市值。"""
+        return self.long_positions_value
+
+    @property
+    def short_liability(self) -> float:
+        """返回当前所有空头持仓的总负债（市值绝对值）。"""
+        return self.short_positions_value

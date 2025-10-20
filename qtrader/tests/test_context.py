@@ -28,7 +28,7 @@ def test_set_initial_state_basic(mock_context):
     # 验证账户总值
     expected_total_value = initial_cash + (100 * 10.0)
     assert ctx.portfolio.initial_cash == expected_total_value
-    assert ctx.portfolio.total_value == expected_total_value
+    assert ctx.portfolio.total_assets == expected_total_value
     assert ctx.portfolio.available_cash == initial_cash # 多头不占用保证金
     assert ctx.portfolio.margin == 0
 
@@ -108,7 +108,7 @@ def test_align_account_state_basic(mock_context):
     assert pos.avg_cost == 10.5
     
     expected_total_value = target_cash + (100 * 10.5)
-    assert ctx.portfolio.total_value == expected_total_value
+    assert ctx.portfolio.total_assets == expected_total_value
 
 def test_align_account_state_add_and_remove_positions(mock_context):
     """测试 align_account_state 新增和移除持仓的功能。"""

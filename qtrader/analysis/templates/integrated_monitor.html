@@ -470,6 +470,12 @@
                 const modeText = isSimulation ? `模拟交易 (${ov.market_phase || '...'})` : '历史回测';
                 document.getElementById('header-info').innerHTML = `策略: <strong>${ov.strategy_name||'-'}</strong> | 模式: <strong>${modeText}</strong> | 周期: ${ov.start_date||'-'} to ${ov.end_date||'N/A'} | 初始资金: <strong>${formatCurrency(ov.portfolio.initial_cash)}</strong>`;
                 
+                const clockElement = document.getElementById('real-time-clock');
+                if (clockElement) {
+                    const timeLabel = isSimulation ? '当前时间' : '回测时间';
+                    clockElement.innerHTML = `${timeLabel}: <span style="font-weight: 600; color: var(--text-primary);">${ov.current_dt || '...'}</span>`;
+                }
+                
                 const statusContainer = document.getElementById('status-container');
                 if (statusContainer) {
                     let status_text = ov.is_running ? (ov.is_paused ? '已暂停' : '运行中') : '已结束';
@@ -611,15 +617,7 @@
                 if(clockElement) clockElement.style.display = 'none';
                 updateUI(staticData); 
             } else {
-                const clockElement = document.getElementById('real-time-clock');
-                if(clockElement) {
-                    const updateClock = () => {
-                        const now = new Date();
-                        clockElement.textContent = now.toLocaleTimeString('zh-CN', { hour12: false });
-                    };
-                    updateClock();
-                    setInterval(updateClock, 1000);
-                }
+                // The clock is now updated within the main updateUI function based on data from the backend.
 
                 fetch('/api/initial_data').then(res => res.json()).then(data => {
                     updateUI(data);

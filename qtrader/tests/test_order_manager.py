@@ -86,3 +86,29 @@ def test_get_orders(mock_context):
     assert len(all_orders) == 3
     statuses = {o.status for o in all_orders}
     assert statuses == {OrderStatus.FILLED, OrderStatus.REJECTED, OrderStatus.OPEN}
+
+
+def test_submit_order_with_string_type(mock_context, caplog):
+    """测试 submit_order 是否正确处理字符串类型的 order_type。"""
+    ctx = mock_context()
+
+    # 1. 测试有效的字符串 "market"
+    order_id_market = ctx.order_manager.submit_order('000001', 100, 'market')
+    assert order_id_market is not None
+    assert ctx.order_manager.orders[order_id_market].order_type == OrderType.MARKET
+
+    # 2. 测试有效的字符串 "limit"
+    order_id_limit = ctx.order_manager.submit_order('000002', 100, 'limit', price=10.0)
+    assert order_id_limit is not None
+    assert ctx.order_manager.orders[order_id_limit].order_type == OrderType.LIMIT
+
+    # 3. 测试大小写不敏感（例如 "MaRkEt"）
+    order_id_case = ctx.order_manager.submit_order('000003', 100, 'MaRkEt')
+    assert order_id_case is not None
+    assert ctx.order_manager.orders[order_id_case].order_type == OrderType.MARKET
+
+    # 4. 测试无效的字符串
+    order_id_invalid = ctx.order_manager.submit_order('000004', 100, 'invalid_type')
+    assert order_id_invalid is None
+    # 确认日志记录了错误
+    assert "无效的订单类型字符串: 'invalid_type'" in caplog.text

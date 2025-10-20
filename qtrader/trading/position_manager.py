@@ -1,6 +1,6 @@
 # qtrader/trading/position_manager.py
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
 from ..trading.position import Position, PositionDirection
 from ..core.context import Context
@@ -43,18 +43,31 @@ class PositionManager:
         """生成用于持仓字典的唯一键。"""
         return f"{symbol}::{direction.value}"
 
-    def get_position(self, symbol: str, direction: PositionDirection = PositionDirection.LONG) -> Optional[Position]:
+    def get_position(self, symbol: str, direction: Union[str, PositionDirection] = PositionDirection.LONG) -> Optional[Position]:
         """
         获取指定证券和方向的持仓。
 
         Args:
             symbol (str): 证券代码。
-            direction (PositionDirection): 持仓方向（多头或空头）。
+            direction (Union[str, PositionDirection]): 持仓方向。
+                可接受 PositionDirection.LONG, PositionDirection.SHORT,
+                或字符串 "long", "short"。
 
         Returns:
             Optional[Position]: 如果存在则返回持仓对象，否则返回 None。
         """
-        return self.positions.get(self._key(symbol, direction))
+        direction_enum: PositionDirection
+        if isinstance(direction, str):
+            try:
+                direction_enum = PositionDirection(direction.lower())
+            except ValueError:
+                raise ValueError(f"无效的持仓方向字符串: '{direction}'. 请使用 'long' 或 'short'。")
+        elif isinstance(direction, PositionDirection):
+            direction_enum = direction
+        else:
+            raise TypeError(f"持仓方向参数类型错误: {type(direction)}. 请使用 PositionDirection 枚举或字符串。")
+
+        return self.positions.get(self._key(symbol, direction_enum))
 
     def get_all_positions(self, direction: Optional[PositionDirection] = None) -> List[Position]:
         """

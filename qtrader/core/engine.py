@@ -1015,11 +1015,14 @@ class Engine:
             self.context.logger.info("正在自动打开回测报告...")
             try:
                 report_path = str(self.workspace_manager.report_file.resolve())
+                # [修复] 使用 os.system('start ...') 在 Windows 上启动浏览器，
+                # 这会创建一个完全分离的进程，防止在主程序退出时浏览器被关闭。
+                # 对于其他系统，webbrowser.open 的行为通常是正确的。
                 if sys.platform == "win32":
-                    os.startfile(report_path)
+                    os.system(f'start "" "{report_path}"')
                 else:
                     webbrowser.open(self.workspace_manager.report_file.as_uri())
-                time.sleep(3) # 增加延时以确保浏览器有足够时间启动
+                time.sleep(1) # 保留一个短暂的延时，确保命令有时间执行
             except Exception as e:
                 self.context.logger.warning(f"自动打开报告失败: {e}")
         

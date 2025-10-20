@@ -37,7 +37,7 @@ def test_update_margin(mock_context):
 
     pm.get_all_positions = MagicMock(return_value=[long_pos, short_pos_1, short_pos_2])
 
-    portfolio.update_margin(pm)
+    portfolio.update_financials(pm)
 
     assert portfolio.margin == 55000
     assert portfolio.available_cash == portfolio.cash - 55000
@@ -51,14 +51,14 @@ def test_returns_calculation(mock_context):
     assert portfolio.returns == 0.0  # 初始收益率为0
 
     # 模拟总资产增加
-    portfolio.total_value = 1100000
+    portfolio.net_worth = 1100000
     assert portfolio.returns == pytest.approx(0.1)
 
     # 模拟总资产减少
-    portfolio.total_value = 950000
+    portfolio.net_worth = 950000
     assert portfolio.returns == pytest.approx(-0.05)
 
     # 测试初始资金为0的边缘情况
     portfolio.initial_cash = 0
-    portfolio.total_value = 1000
+    portfolio.net_worth = 1000
     assert portfolio.returns == 0.0

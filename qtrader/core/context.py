@@ -283,6 +283,10 @@ class Context:
             )
 
         # 3. 更新账户状态并记录日志
+        # 在更新财务指标前，确保所有持仓的当前价格与对齐后的成本一致
+        for pos in self.position_manager.get_all_positions():
+            pos.update_price(pos.avg_cost)
+        
         self.portfolio.update_financials(self.position_manager)
         
         all_final_positions = self.position_manager.get_all_positions()
