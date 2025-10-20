@@ -335,7 +335,7 @@ class MatchingEngine:
             # 卖出（平多仓或开空仓），都是现金流入
             portfolio.cash += gross_value - commission
 
-        # [重构] 交易完成后，全面更新所有财务指标
+        # 交易完成后，全面更新所有财务指标
         portfolio.update_financials(pm)
 
         # 根据是否产生实际盈亏来决定日志内容
@@ -404,7 +404,7 @@ class MatchingEngine:
             if self.context.config.get('account', {}).get('trading_rule', 'T+1') == 'T+1':
                 pos.settle_t1()
 
-        # [重构] 记录每日持仓快照，并调用新的 record_history 方法
+        # 记录每日持仓快照，并调用新的 record_history 方法
         pm.daily_snapshots = [s for s in pm.daily_snapshots if s.get('date') != date_str]
         pm.record_daily_snapshot(date_str, snapshot_entries)
         self.context.portfolio.record_history(self.context.current_dt, pm)

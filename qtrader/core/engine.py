@@ -873,11 +873,17 @@ class Engine:
             first_trading_day_dt = datetime.strptime(trading_days[0], '%Y-%m-%d')
             day_before_str = (first_trading_day_dt - timedelta(days=1)).strftime('%Y-%m-%d')
 
+            # [重构] 使用新的、完整的会计科目创建初始历史记录点
             self.context.portfolio.history.append({
                 'date': day_before_str,
+                'net_worth': initial_cash,
+                'total_assets': initial_cash,
                 'cash': initial_cash,
-                'position_value': 0.0,
-                'total_value': initial_cash,
+                'margin': 0.0,
+                'available_cash': initial_cash,
+                'long_positions_value': 0.0,
+                'short_positions_value': 0.0,
+                'net_positions_value': 0.0,
                 'returns': 0.0,
             })
             
@@ -895,21 +901,24 @@ class Engine:
         self.context.logger.info("为模拟盘注入初始净值点...")
         initial_cash = self.context.portfolio.initial_cash
 
-        # 从今天开始往前找，找到“昨天”
-        # 确保我们从“昨天”开始搜索，而不是今天
         previous_day = datetime.now() - timedelta(days=1)
         day_before_str = previous_day.strftime('%Y-%m-%d')
 
+        # [重构] 使用新的、完整的会计科目创建初始历史记录点
         self.context.portfolio.history.append({
             'date': day_before_str,
+            'net_worth': initial_cash,
+            'total_assets': initial_cash,
             'cash': initial_cash,
-            'position_value': 0.0,
-            'total_value': initial_cash,
+            'margin': 0.0,
+            'available_cash': initial_cash,
+            'long_positions_value': 0.0,
+            'short_positions_value': 0.0,
+            'net_positions_value': 0.0,
             'returns': 0.0,
         })
         
         if self.context.benchmark_manager and self.context.benchmark_manager.benchmark_symbol:
-            # 确保基准已初始化
             if not self.context.benchmark_manager.initial_value:
                 self.context.benchmark_manager.initialize(self.config.get('benchmark', {}))
             

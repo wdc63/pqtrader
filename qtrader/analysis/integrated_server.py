@@ -323,26 +323,23 @@ class IntegratedServer:
                 self.context.logger.warning(f"更新数据失败: {e}", exc_info=True)
     
     def _collect_overview_data(self) -> Dict[str, Any]:
-        """收集核心概览数据，包括投资组合价值、基准、图表等。"""
+        """ 收集核心概览数据，使用新的账户模型。"""
         try:
             portfolio = self.context.portfolio
-            positions_value = sum(
-                pos.market_value for pos in self.context.position_manager.get_all_positions()
-            )
+            
             portfolio_returns = portfolio.returns
-
             benchmark_returns = self.context.benchmark_manager.get_current_returns()
             benchmark_value = self.context.benchmark_manager.get_current_value()
             benchmark_name = self.context.benchmark_manager.benchmark_name
             
-            history_df = self.context.portfolio.history.copy()
-            equity_df = pd.DataFrame(history_df)
+            history_df = pd.DataFrame(self.context.portfolio.history)
             benchmark_df = pd.DataFrame(self.context.benchmark_manager.get_benchmark_data())
             
             chart_data = {}
-            if not equity_df.empty:
-                dates = equity_df['date'].tolist()
-                strategy_values = equity_df['total_value'].round(2).tolist()
+            if not history_df.empty:
+                dates = history_df['date'].tolist()
+                # [重构] 资金曲线基于 net_worth (净资产)
+                strategy_values = history_df['net_worth'].round(2).tolist()
                 if not benchmark_df.empty:
                     benchmark_map = {row['date']: row['value'] for _, row in benchmark_df.iterrows()}
                 else:
@@ -358,9 +355,10 @@ class IntegratedServer:
             
             intraday_equity_data = {}
             intraday_benchmark_data = {}
-            # 获取当日的初始资金，用于计算日内收益率
+            
             if portfolio.history:
-                initial_cash_today = portfolio.history[-1]['total_value']
+                # [重构] 当日初始资金是昨日的净资产
+                initial_cash_today = portfolio.history[-1]['net_worth']
             else:
                 initial_cash_today = portfolio.initial_cash
             
@@ -370,8 +368,9 @@ class IntegratedServer:
                 intraday_history = self.context.intraday_equity_history.copy()
                 intraday_df = pd.DataFrame(intraday_history)
                 if not intraday_df.empty and initial_cash_today > 0:
-                    values = intraday_df['total_value'].round(2).tolist()
-                    returns_series = (intraday_df['total_value'] / initial_cash_today - 1) * 100
+                    # [重构] 日内资金曲线同样基于 net_worth
+                    values = intraday_df['net_worth'].round(2).tolist()
+                    returns_series = (intraday_df['net_worth'] / initial_cash_today - 1) * 100
                     returns = returns_series.round(2).tolist()
                     intraday_equity_data = {
                         "times": intraday_df['time'].tolist(),
@@ -379,9 +378,9 @@ class IntegratedServer:
                         "returns": returns,
                     }
                     if portfolio_returns:
-                        portfolio_returns = round((1+portfolio_returns) * (1+returns[-1]/100)-1,4)
+                        portfolio_returns = round((1 + portfolio_returns) * (1 + returns[-1] / 100) - 1, 4)
                     else:
-                        portfolio_returns = round(returns[-1]/100,4)
+                        portfolio_returns = round(returns[-1] / 100, 4)
 
                 if self.context.intraday_benchmark_history:
                     benchmark_history = self.context.intraday_benchmark_history.copy()
@@ -396,9 +395,9 @@ class IntegratedServer:
                             "returns": returns,
                         }
                         if benchmark_returns:
-                            benchmark_returns = round((1+benchmark_returns) * (1+returns[-1]/100)-1,4)
+                            benchmark_returns = round((1 + benchmark_returns) * (1 + returns[-1] / 100) - 1, 4)
                         else:
-                            benchmark_returns = round(returns[-1]/100,4)
+                            benchmark_returns = round(returns[-1] / 100, 4)
 
             return {
                 'strategy_name': self.context.strategy_name,
@@ -412,9 +411,13 @@ class IntegratedServer:
                 'is_paused': self.context.is_paused,
                 'start_date': self.context.start_date, 'end_date': self.context.end_date,
                 'portfolio': {
-                    'total_value': round(portfolio.cash + positions_value, 2),
+                    # [重构] 使用新的、清晰的会计指标
+                    'net_worth': portfolio.net_worth,
+                    'total_assets': portfolio.total_assets,
                     'cash': portfolio.cash,
-                    'positions_value': positions_value,
+                    'long_positions_value': portfolio.long_positions_value,
+                    'short_positions_value': portfolio.short_positions_value,
+                    'net_positions_value': portfolio.net_positions_value,
                     'returns': portfolio_returns,
                     'initial_cash': portfolio.initial_cash,
                     'margin': portfolio.margin,
@@ -491,7 +494,8 @@ class IntegratedServer:
                         "direction": pos.direction.value,
                         "amount": pos.total_amount,
                         "close_price": current_price,
-                        "market_value": abs(pos.total_amount * current_price),
+                        # [重构] 市值必须是带符号的，以反映空头负债
+                        "market_value": (pos.total_amount * current_price) * direction_multiplier,
                         "daily_pnl": daily_pnl,
                         "daily_pnl_ratio": daily_pnl_ratio
                     })
@@ -676,7 +680,8 @@ class IntegratedServer:
             if len(history_df) < 2:
                 return default_metrics
 
-            returns = history_df['total_value'].pct_change().dropna()
+            # [重构] 所有风险指标的计算都应基于 net_worth (净资产)
+            returns = history_df['net_worth'].pct_change().dropna()
             benchmark_df = pd.DataFrame(self.context.benchmark_manager.get_benchmark_data())
             
             returns.index = pd.to_datetime(history_df['date'].iloc[1:])

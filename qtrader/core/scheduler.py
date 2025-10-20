@@ -3,10 +3,10 @@
 import time as time_module
 from datetime import datetime, time, timedelta, date
 from typing import List
-from qtrader.core.context import Context
-from qtrader.core.time_manager import TimeManager
-from qtrader.core.lifecycle import LifecycleManager
-from qtrader.trading.matching_engine import MatchingEngine
+from ..core.context import Context
+from ..core.time_manager import TimeManager
+from ..core.lifecycle import LifecycleManager
+from ..trading.matching_engine import MatchingEngine
 
 # 定义默认时间常量
 DEFAULT_BEFORE_TRADING_TIME = '09:15:00'
@@ -197,7 +197,7 @@ class Scheduler:
             if is_resume_day:
                 # 在恢复日，跳过盘前准备，并调整 handle_bar 的时间点
                 self.context.logger.info("此为恢复日，跳过盘前准备流程。")
-                if self.context.portfolio.history: self._strategy_start_of_day_value = self.context.portfolio.history[-1]['total_value']
+                if self.context.portfolio.history: self._strategy_start_of_day_value = self.context.portfolio.history[-1]['net_worth']
                 if self.context.benchmark_manager.benchmark_history: self._benchmark_start_of_day_price = self.context.benchmark_manager.benchmark_history[-1].get('close_price')
                 self._last_intraday_stats_update_dt = resume_dt
                 resume_time_str = resume_dt.strftime('%H:%M:%S')
@@ -217,7 +217,7 @@ class Scheduler:
                 self.context.current_dt = dt_before_trading
                 self.lifecycle_manager.call_before_trading()
 
-                if self.context.portfolio.history: self._strategy_start_of_day_value = self.context.portfolio.history[-1]['total_value']
+                if self.context.portfolio.history: self._strategy_start_of_day_value = self.context.portfolio.history[-1]['net_worth']
                 if self.context.benchmark_manager.benchmark_history: self._benchmark_start_of_day_price = self.context.benchmark_manager.benchmark_history[-1].get('close_price')
                 
                 self._maybe_update_server()
@@ -326,7 +326,7 @@ class Scheduler:
                 self.context.intraday_equity_history.clear()
                 self.context.intraday_benchmark_history.clear()
                 self._last_intraday_stats_update_dt = datetime(1970, 1, 1)
-                if self.context.portfolio.history: self._strategy_start_of_day_value = self.context.portfolio.history[-1]['total_value']
+                if self.context.portfolio.history: self._strategy_start_of_day_value = self.context.portfolio.history[-1]['net_worth']
                 if self.context.benchmark_manager.benchmark_history: self._benchmark_start_of_day_price = self.context.benchmark_manager.benchmark_history[-1].get('close_price')
                 
                 if state_machine['is_today_trading_day']:
@@ -513,6 +513,14 @@ class Scheduler:
         Returns:
             bool: 如果执行了更新，则返回 True，否则返回 False。
         """
+        # 增加安全检查：在模拟盘中，仅在交易时段内更新
+        if self.context.mode == 'simulation':
+            sessions = self.lifecycle_config.get('trading_sessions', [])
+            trading_sessions = [(datetime.strptime(s, '%H:%M:%S').time(), datetime.strptime(e, '%H:%M:%S').time()) for s, e in sessions]
+            current_time = dt.time()
+            if not any(start <= current_time <= end for start, end in trading_sessions):
+                return False
+
         stats_interval = timedelta(minutes=self._intraday_update_freq)
         is_on_schedule = dt - self._last_intraday_stats_update_dt >= stats_interval
 
@@ -522,18 +530,17 @@ class Scheduler:
         self._last_intraday_stats_update_dt = dt
         
         pm = self.context.position_manager
-        position_value = 0.0
+        # 在计算前，先更新所有持仓的最新价格
         for pos in pm.get_all_positions():
             price_data = self.context.data_provider.get_current_price(pos.symbol, dt)
             current_price = price_data['current_price'] if price_data else pos.current_price
             pos.update_price(current_price)
-            position_value += pos.market_value
-        
-        total_value = self.context.portfolio.cash + position_value
+
+        net_worth = self.context.portfolio.net_worth
         
         self.context.intraday_equity_history.append({
             'time': dt.strftime('%H:%M:%S'),
-            'total_value': total_value,
+            'net_worth': net_worth,
         })
         
         benchmark_symbol = self.context.benchmark_manager.benchmark_symbol

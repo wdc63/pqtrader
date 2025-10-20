@@ -180,7 +180,7 @@ class Context:
                 direction=direction
             )
 
-        # [重构] 全面更新账户财务指标，并正确计算初始净资产
+        # 全面更新账户财务指标，并正确计算初始净资产
         self.portfolio.update_financials(self.position_manager)
         self.portfolio.initial_cash = self.portfolio.net_worth # 初始净资产等于此刻的净值
 
@@ -282,7 +282,7 @@ class Context:
                 direction=direction
             )
 
-        # 3. [重构] 更新账户状态并记录日志
+        # 3. 更新账户状态并记录日志
         self.portfolio.update_financials(self.position_manager)
         
         all_final_positions = self.position_manager.get_all_positions()

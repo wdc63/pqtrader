@@ -499,11 +499,14 @@
 
                 const p = ov.portfolio, b = ov.benchmark || {}, alpha = p.returns - (b.returns || 0);
                 document.getElementById('overview-metrics').innerHTML = [
-                    { l: '账户总资产', v: formatCurrency(p.total_value) },
+                    { l: '账户净资产', v: formatCurrency(p.net_worth) },
+                    { l: '总资产', v: formatCurrency(p.total_assets) },
                     { l: '账户现金', v: formatCurrency(p.cash) },
+                    { l: '多头市值', v: formatCurrency(p.long_positions_value) },
+                    { l: '空头负债', v: formatCurrency(p.short_positions_value), c: p.short_positions_value > 0 ? 'negative' : '' },
+                    { l: '净持仓市值', v: formatCurrency(p.net_positions_value) },
                     { l: '已用保证金', v: formatCurrency(p.margin) },
                     { l: '可用资金', v: formatCurrency(p.available_cash) },
-                    { l: '持仓市值', v: formatCurrency(p.positions_value) },
                     { l: '策略收益率', v: formatPercent(p.returns), c: getValueClass(p.returns) },
                     { l: '基准收益率', v: formatPercent(b.returns), c: getValueClass(b.returns) },
                     { l: '超额收益', v: formatPercent(alpha), c: getValueClass(alpha) },

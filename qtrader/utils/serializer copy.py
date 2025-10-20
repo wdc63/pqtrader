@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Optional
 from ..core.context import Context
 from ..trading.position import PositionDirection
-from ..trading.account import Portfolio
 
 class StateSerializer:
     """
@@ -83,6 +82,7 @@ class StateSerializer:
                     "direction": pos.direction.value,
                     "amount": pos.total_amount,
                     "close_price": current_price,
+                    # [重构] 修正市值计算，确保空头仓位市值为负
                     "market_value": (pos.total_amount * current_price) * direction_multiplier,
                     "daily_pnl": daily_pnl,
                     "daily_pnl_ratio": daily_pnl_ratio
@@ -147,7 +147,9 @@ class StateSerializer:
     def load(self, file_path: str):
         """
         从 .pkl 文件加载运行状态，并恢复到当前 `Context` 对象。
-        [重构] 增加对旧版状态文件的兼容性处理。
+
+        Args:
+            file_path (str): 状态文件的路径。
         """
         with open(file_path, 'rb') as f:
             state = pickle.load(f)
@@ -162,18 +164,14 @@ class StateSerializer:
         self.context.frequency = context_data['frequency']
         self.context.frequency_options = context_data.get('frequency_options', {})
         self.context.config = context_data['config']
-
+        
         # --- 恢复 Portfolio ---
         self.context.portfolio = state['portfolio']
         
         # --- 恢复 Positions ---
-        self.context.position_manager.restore_positions(state.get('positions', []))
+        self.context.position_manager.restore_positions(state['positions'])
         self.context.position_manager.restore_daily_snapshots(state.get('position_snapshots', []))
         
-        # 恢复完持仓后，立即用新的财务模型更新一次账户状态
-        if self.context.portfolio and self.context.position_manager:
-            self.context.portfolio.update_financials(self.context.position_manager)
-
         # --- 恢复 Orders ---
         self.context.order_manager.restore_orders(state['orders'])
         

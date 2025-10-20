@@ -136,7 +136,7 @@ class SimpleMAStrategy(Strategy):
         
         portfolio = context.portfolio
         context.logger.info(
-            f"账户总资产: ¥{portfolio.total_value:,.2f}, "
+            f"账户净资产: ¥{portfolio.net_worth:,.2f}, "
             f"收益率: {portfolio.returns:.2%}"
         )
         
