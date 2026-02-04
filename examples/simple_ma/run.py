@@ -6,12 +6,6 @@ import datetime
 import time
 import threading
 
-# --- 路径设置 ---
-# 为了能直接运行此脚本，我们需要将项目根目录添加到 Python 路径中
-# 这样我们就可以在不安装 'qtrader' 的情况下导入它
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
-
 from time_patcher import TimePatcher
 from qtrader.core.engine import Engine
 from qtrader.runner.backtest_runner import BacktestRunner

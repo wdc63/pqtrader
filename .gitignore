@@ -1,22 +1,13 @@
-# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-
-# Virtual environments
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.dist/
+.build/
 .venv/
 venv/
-ENV/
-
-# Packaging
-build/
-dist/
-*.egg-info/
-
-# IDE
-.vscode/
-.idea/
-
-# OS
 .DS_Store
+*.log
+qtrader_runs/

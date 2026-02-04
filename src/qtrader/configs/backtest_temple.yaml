@@ -6,13 +6,14 @@
 # ==============================================================================
 engine:
   mode: backtest                  # 运行模式: backtest (回测) / simulation (模拟盘)
-  frequency: minute               # 运行频率: daily / minute / tick
+  frequency: daily                # 运行频率: daily / minute / tick
   tick_interval_seconds: 3        # Tick模式下的秒数间隔 (例如: 3 表示每3秒一个bar
   start_date: "2023-01-01"        # 回测开始日期
-  end_date: "2023-10-31"          # 回测结束日期
+  end_date: "2023-12-31"          # 回测结束日期
   strategy_name: "MyStrategy"     # 策略名称（可选，默认使用策略类名）
-  enable_intraday_statistics: true # 记录盘中收益曲线开关（只对 tick 和 minute 模式有效）
-  intraday_update_frequency: 5    # 盘中统计信息更新频率（分钟），默认5分钟
+  enable_intraday_statistics: true # 记录盘中收益统计开关（只对 tick 和 minute 模式有效）
+  intraday_update_frequency: 5    # 盘中收益更新频率，仅对 tick 和 minute 模式有效，默认5分钟
+
 # ==============================================================================
 # 2. 工作区与产物配置
 # ==============================================================================
@@ -21,8 +22,8 @@ workspace:
   create_code_snapshot: true      # 是否创建策略代码快照
   create_config_snapshot: true    # 是否创建配置文件快照
   create_data_provider_snapshot: true # 是否创建数据提供者快照
-  auto_save_state: false         # 是否自动保存状态（每10天）
-  auto_save_interval: 1          # 自动保存间隔（天）
+  auto_save_state: false          # 是否自动保存状态（每10天）
+  auto_save_interval: 10         # 自动保存间隔（天）
   auto_save_mode: 'overwrite'    # 保存模式: 'overwrite' (覆盖) 或 'increment' (增量)
 
 # ==============================================================================
@@ -49,7 +50,7 @@ lifecycle:
     before_trading: "09:15:00"    # 盘前准备
     handle_bar: "14:55:00"        # 日频使用运行时间
     # 方式2：多个时间点
-    # handle_bar:
+    # handle_bar_times:
     #   - "10:00:00"
     #   - "14:00:00"
     #   - "14:55:00"  

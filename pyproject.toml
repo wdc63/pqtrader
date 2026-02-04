@@ -1,3 +1,39 @@
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "qtrader"
+version = "0.1.0"
+description = "A flexible, event-driven backtesting framework for quantitative trading."
+readme = "USER_GUIDE.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "PyYAML>=6.0",
+    "pandas>=1.5.0",
+    "numpy>=1.23.0",
+    "empyrical-reloaded>=0.5.8",
+    "Flask>=2.2.0",
+    "watchdog==6.0.0",
+    "Flask-SocketIO>=5.3.0",
+    "Jinja2>=3.1.0",
+    "pyecharts>=2.0.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

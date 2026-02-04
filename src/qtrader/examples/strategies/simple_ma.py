@@ -41,7 +41,7 @@ class SimpleMAStrategy(Strategy):
     
     # 修正：移除了未使用的 `data` 参数
     def handle_bar(self, context):
-        time.sleep(0.5)
+
         """盘中策略执行"""
         symbol = context.get('symbol')
         ma_short_period = context.get('ma_short')
