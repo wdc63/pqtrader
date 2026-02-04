@@ -36,12 +36,12 @@ QTrader 的目标是反过来：
 
 ```text
 .
-├── src/              # 框架源码（Python package）
-├── examples/         # 示例（端到端跑通）
+├── src/              # 框架源码
+├── examples/         # 简要示例（虚拟数据源）
 ├── tests/            # 测试
 ├── screenshot/       # README 截图
 ├── pyproject.toml
-└── USER_GUIDE.md     # 完整中文用户文档（强烈建议先看）
+└── USER_GUIDE.md     # 用户文档
 ```
 
 ---
