@@ -91,9 +91,84 @@ python -m pip install -e .
 
 > 注意：某些系统的 `python` 可能是 `python3`。
 
-### 3) 跑一个示例
+### 3) 跑一个最小回测（可复制粘贴）✅
 
-示例代码在 `examples/` 目录（文档里也有完整端到端示例）。
+本仓库已经提供了一个端到端示例：
+
+- 策略：`examples/simple_ma/strategy.py`
+- 数据源（Mock）：`examples/simple_ma/data_provider.py`
+- 配置：`examples/simple_ma/config_backtest.yaml`
+- 入口：`examples/simple_ma/run.py`
+
+直接运行：
+
+```bash
+cd examples/simple_ma
+python run.py
+```
+
+说明：
+
+- `run.py` 里包含多种模式（全新回测 / 模拟盘 / 恢复 / 分叉），你可以按注释切换。
+- 默认会启用 Web 监控服务（见配置 `server.port`），跑起来后浏览器能看到过程与指标。
+
+---
+
+## 1 分钟理解配置（YAML）⚙️
+
+配置文件是“总开关”，常用项如下（完整示例见 `examples/simple_ma/config_backtest.yaml`）：
+
+```yaml
+engine:
+  mode: backtest
+  frequency: minute
+  start_date: "2023-01-01"
+  end_date: "2023-10-31"
+
+account:
+  initial_cash: 1000000
+  trading_rule: "T+1"
+
+matching:
+  slippage:
+    type: fixed
+    rate: 0.001
+  commission:
+    buy_commission: 0.0002
+    sell_commission: 0.0002
+
+server:
+  enable: true
+  port: 8050
+```
+
+---
+
+## 数据合约（Data Contract）怎么实现？🔌
+
+QTrader 的数据解耦核心是一个接口：`src/qtrader/data/interface.py`。
+
+你只要实现这 3 个方法，就能把任意数据源接进来：
+
+- `get_trading_calendar(start, end)`：交易日历
+- `get_current_price(symbol, dt)`：某时刻价格快照
+- `get_symbol_info(symbol, date)`：标的静态信息（如停牌/名称）
+
+示例（Mock 数据源，仓库已提供）：`examples/simple_ma/data_provider.py`
+
+```python
+from qtrader.data.interface import AbstractDataProvider
+
+class MyDataProvider(AbstractDataProvider):
+    def get_trading_calendar(self, start: str, end: str) -> list[str]:
+        ...
+
+    def get_current_price(self, symbol: str, dt):
+        return {"current_price": 10.0}
+
+    def get_symbol_info(self, symbol: str, date: str):
+        return {"symbol_name": symbol, "is_suspended": False}
+```
 
 ---
 
