@@ -1,4 +1,4 @@
-# pqtrader（QTrader）📈
+# QTrader📈
 
 <p align="center">
   <b>轻量化 · 事件驱动 · 数据解耦</b><br/>
@@ -63,9 +63,7 @@ flowchart LR
 
 ---
 
-## 截图（图文并茂）🖼️
-
-> 来自 `screenshot/` 目录：
+## 回测结果截图🖼️
 
 ![Screenshot 1](screenshot/screenshot1.png)
 ![Screenshot 2](screenshot/screenshot2.png)
